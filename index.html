@@ -117,7 +117,8 @@
         // MQTT proměnné (pro "nástěnku")
         let mqttClient;
         const onlineUsers = new Map();
-        const PRESENCE_TOPIC_PREFIX = 'p2p-chat-app/gemini-lobby/presence/';
+        // ZMĚNA: Přidáno "-v2" do názvu topicu, abychom se zbavili "duchů" z předchozí verze
+        const PRESENCE_TOPIC_PREFIX = 'p2p-chat-app/gemini-lobby-v2/presence/';
         const BROKER_URL = 'wss://broker.hivemq.com:8884/mqtt'; // Veřejný MQTT broker
 
         // DOM Elementy
@@ -426,5 +427,6 @@
     </script>
 </body>
 </html>
+
 
 
