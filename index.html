@@ -177,9 +177,25 @@
          * KROK 2: Inicializace MQTT (pro "nástěnku" / seznam uživatelů)
          */
         function initializeMqtt() {
+            // ----- ZAČÁTEK ZMĚNY: Přidání "Poslední vůle" (LWT) -----
+            // Toto je oprava chyby, kdy uživatelé zůstávali "viset" online.
+            // Říkáme brokeru: "Pokud se odpojím neočekávaně (crash, ztráta sítě),
+            // automaticky za mě pošli tuto zprávu."
+            const myPresenceTopic = `${PRESENCE_TOPIC_PREFIX}${myId}`;
+            const lwtOptions = {
+                will: {
+                    topic: myPresenceTopic,
+                    payload: '', // Prázdná zpráva (offline)
+                    qos: 1,      // Quality of Service
+                    retain: true // Přepíše "online" zprávu
+                }
+            };
+
             try {
-                mqttClient = mqtt.connect(BROKER_URL);
+                // Předáme LWT nastavení hned při připojení
+                mqttClient = mqtt.connect(BROKER_URL, lwtOptions);
             } catch (e) {
+            // ----- KONEC ZMĚNY -----
                 logStatus(`Chyba při připojování k MQTT: ${e.message}. Seznam uživatelů nebude fungovat.`);
                 console.error("MQTT initialization error:", e);
                 return;
@@ -222,7 +238,8 @@
 
             mqttClient.on('error', (err) => logStatus("Chyba MQTT nástěnky."));
 
-            // Když uživatel zavře okno, odhlásíme ho
+            // Když uživatel zavře okno, odhlásíme ho (toto je pro NORMÁLNÍ odchod)
+            // LWT (viz výše) řeší pády a ztrátu sítě.
             window.onbeforeunload = () => {
                 // Zkontrolujeme, zda mqttClient existuje a je připojen
                 if (mqttClient && mqttClient.connected) {
@@ -409,4 +426,5 @@
     </script>
 </body>
 </html>
+
 
