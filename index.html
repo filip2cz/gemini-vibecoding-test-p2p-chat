@@ -373,12 +373,35 @@
          * Společná funkce pro nastavení událostí spojení (PeerJS)
          */
         function setupConnectionEvents(conn) {
+            // Zabráníme více spojením najednou
+            if (dataConnection) {
+                conn.close();
+                return;
+            }
+
             dataConnection = conn;
+
+            // TATO ČÁST BYLA ROZBITÁ A NYNÍ JE OPRAVENA
             conn.on('open', () => {
-                logStatus(`Připojeno k ${conn.peer.substring(0, 6)}!`);
+                // Zjistíme jméno protějšku
+                const peerData = onlineUsers.get(conn.peer) || { name: `Uživatel-${conn.peer.substring(0, 4)}` };
+                logStatus(`Spojeno s uživatelem "${peerData.name}". Můžete chatovat.`);
+                enableChat(conn.peer); // Povolíme chat
+            });
+
+            // TATO ČÁST CHYBĚLA
+            conn.on('data', (data) => {
+                // Příchozí zpráva
+                addMessageToChat(data, false);
+            });
+
+            // TATO ČÁST CHYBĚLA
+            conn.on('close', () => {
                 logStatus(`Protějšek se odpojil.`);
                 disableChat();
             });
+
+            // Tato část byla v pořádku
             conn.on('error', (err) => {
                 logStatus(`Chyba spojení: ${err.message}`);
                 disableChat();
@@ -493,6 +516,7 @@
     </script>
 </body>
 </html>
+
 
 
 
