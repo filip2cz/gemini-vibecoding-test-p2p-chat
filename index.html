@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Chat s Firebase</title>
+    <title>P2P Chat (Manuální připojení)</title>
     <!-- Import Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Import Google Font "Inter" -->
@@ -11,106 +11,83 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Nastavení fontu Inter jako výchozího */
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        /* Styly pro chatovací bubliny */
+        body { font-family: 'Inter', sans-serif; }
         .chat-bubble-me {
-            background-color: #3b82f6; /* modrá */
-            color: white;
-            border-radius: 20px 20px 5px 20px;
+            background-color: #3b82f6; color: white; border-radius: 20px 20px 5px 20px;
         }
         .chat-bubble-peer {
-            background-color: #e5e7eb; /* světle šedá */
-            color: #1f2937;
-            border-radius: 20px 20px 20px 5px;
+            background-color: #e5e7eb; color: #1f2937; border-radius: 20px 20px 20px 5px;
+        }
+        textarea {
+            font-family: monospace;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            word-break: break-all;
         }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
     <div class="w-full max-w-2xl bg-white rounded-2xl shadow-xl p-6 md:p-8 space-y-6">
-        <h1 class="text-3xl font-bold text-center text-gray-800">P2P Chat</h1>
+        <h1 class="text-3xl font-bold text-center text-gray-800">P2P Chat (Manuální)</h1>
 
-        <!-- Sekce s ID uživatele -->
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h2 class="text-lg font-semibold text-blue-800">Vaše ID pro připojení</h2>
-            <p class="text-sm text-blue-600">Sdílejte toto ID s osobou, se kterou chcete chatovat. Musí jej zadat do pole "ID protějšku".</p>
-            <div class="mt-2 bg-white rounded-md p-3 text-center font-mono text-gray-700 select-all break-all" id="userIdDisplay">
-                Načítání...
-            </div>
-            <p class="text-xs text-blue-500 mt-2">Toto je vaše unikátní ID z Firebase. Ostatní jej použijí k zahájení chatu s vámi.</p>
-        </div>
-
-        <!-- Sekce pro připojení -->
-        <div class="space-y-4">
-            <div>
-                <label for="peerIdInput" class="block text-sm font-medium text-gray-700">ID protějšku</label>
-                <input type="text" id="peerIdInput" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5" placeholder="Vložte ID druhé osoby">
-            </div>
-            <button id="connectButton" class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                Připojit
-            </button>
-        </div>
+        <p class="text-center text-gray-600">Jeden uživatel musí být "Hostitel" a druhý "Klient".</p>
 
         <!-- Stav připojení -->
-        <div id="statusBox" class="text-sm text-center text-gray-500 p-2 bg-gray-50 rounded-md">
+        <div id="statusBox" class="text-sm text-center text-gray-500 p-3 bg-gray-50 rounded-md shadow-inner">
             Očekávání akce...
         </div>
 
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Sekce Hostitel -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <h2 class="text-lg font-semibold text-blue-800">Krok 1: Hostitel</h2>
+                <button id="createOfferButton" class="w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                    1. Vytvořit nabídku
+                </button>
+                <textarea id="offerTextarea" rows="4" class="w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Zde se objeví nabídka... (Kopírovat)" readonly></textarea>
+                <label for="hostAnswerTextarea" class="block text-sm font-medium text-gray-700">3. Vložit odpověď od klienta:</label>
+                <textarea id="hostAnswerTextarea" rows="4" class="w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Vložte sem odpověď..."></textarea>
+                <button id="connectHostButton" class="w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                    4. Dokončit připojení
+                </button>
+            </div>
+
+            <!-- Sekce Klient -->
+            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 space-y-3">
+                <h2 class="text-lg font-semibold text-indigo-800">Krok 2: Klient</h2>
+                <label for="joinOfferTextarea" class="block text-sm font-medium text-gray-700">1. Vložit nabídku od hostitele:</label>
+                <textarea id="joinOfferTextarea" rows="4" class="w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Vložte sem nabídku..."></textarea>
+                <button id="createAnswerButton" class="w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+                    2. Vytvořit odpověď
+                </button>
+                <textarea id="answerTextarea" rows="4" class="w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Zde se objeví odpověď... (Kopírovat)" readonly></textarea>
+            </div>
+        </div>
+
         <!-- Chatovací okno -->
-        <div id="chatWindow" class="h-80 w-full bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4 overflow-y-auto">
-            <!-- Zprávy se budou přidávat sem -->
+        <h3 class="text-xl font-semibold text-gray-700 pt-4 border-t">Chat</h3>
+        <div id="chatWindow" class="h-60 w-full bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4 overflow-y-auto">
             <div class="text-center text-gray-400">Zatím žádné zprávy</div>
         </div>
 
         <!-- Odeslání zprávy -->
         <div class="flex space-x-3">
             <input type="text" id="messageInput" class="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5" placeholder="Napište zprávu..." disabled>
-            <button id="sendButton" class="inline-flex items-center px-4 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+            <button id="sendButton" class="inline-flex items-center px-4 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400" disabled>
                 Odeslat
             </button>
         </div>
     </div>
 
-    <!-- Firebase a WebRTC logika -->
+    <!-- WebRTC logika -->
     <script type="module">
-        // Importy z Firebase SDK
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import {
-            getAuth,
-            signInAnonymously,
-            signInWithCustomToken,
-            onAuthStateChanged
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import {
-            getFirestore,
-            doc,
-            setDoc,
-            onSnapshot,
-            updateDoc,
-            deleteField,
-            arrayUnion
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Globální proměnné z Canvas prostředí
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-p2p-chat';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        // Firebase instance
-        let app, auth, db;
-        let userId;
-
         // WebRTC proměnné
         let pc; // PeerConnection
         let dataChannel;
-        let peerId;
-        let isConnecting = false; // Zámek pro zamezení souběžných připojení
-        let signalListenerUnsubscribe = null; // Funkce pro odhlášení listeneru
 
-        // Konfigurace STUN serveru (potřebné pro WebRTC)
+        // Konfigurace STUN serveru (veřejný server od Google)
+        // Toto NENÍ konfigurační soubor, je to jen adresa nutná pro WebRTC, aby pomohla najít cestu mezi sítěmi.
         const servers = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -118,129 +95,51 @@
         };
 
         // DOM Elementy
-        const userIdDisplay = document.getElementById('userIdDisplay');
-        const peerIdInput = document.getElementById('peerIdInput');
-        const connectButton = document.getElementById('connectButton');
+        const statusBox = document.getElementById('statusBox');
+
+        // Hostitel
+        const createOfferButton = document.getElementById('createOfferButton');
+        const offerTextarea = document.getElementById('offerTextarea');
+        const hostAnswerTextarea = document.getElementById('hostAnswerTextarea');
+        const connectHostButton = document.getElementById('connectHostButton');
+
+        // Klient
+        const joinOfferTextarea = document.getElementById('joinOfferTextarea');
+        const createAnswerButton = document.getElementById('createAnswerButton');
+        const answerTextarea = document.getElementById('answerTextarea');
+
+        // Chat
         const chatWindow = document.getElementById('chatWindow');
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
-        const statusBox = document.getElementById('statusBox');
-
-        /**
-         * Inicializace Firebase a autentizace
-         */
-        async function initFirebase() {
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                logStatus("Autentizace...");
-
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        userIdDisplay.textContent = userId;
-                        logStatus("Připraven. Sdílejte své ID nebo zadejte ID protějšku.");
-                        // Začneme poslouchat na našem signalizačním dokumentu
-                        startSignalingListener(userId);
-                    } else {
-                        // Pokud není uživatel, zkusíme se přihlásit
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    }
-                });
-
-            } catch (error) {
-                console.error("Firebase Init Error:", error);
-                logStatus("Chyba při inicializaci Firebase.");
-            }
-        }
-
-        /**
-         * Vytvoří cestu k signalizačnímu dokumentu
-         */
-        function getSignalRef(id) {
-            return doc(db, `artifacts/${appId}/public/data/p2p_signals/${id}`);
-        }
-
-        /**
-         * Začne poslouchat na změny v našem signalizačním dokumentu
-         */
-        function startSignalingListener(id) {
-            if (signalListenerUnsubscribe) {
-                signalListenerUnsubscribe(); // Odhlásíme předchozí listener
-            }
-
-            const signalRef = getSignalRef(id);
-            signalListenerUnsubscribe = onSnapshot(signalRef, async (doc) => {
-                const data = doc.data();
-                if (!data) return;
-
-                try {
-                    // Zpracování příchozí nabídky (offer)
-                    if (data.offer && !isConnecting) {
-                        isConnecting = true;
-                        peerId = data.offer.from;
-                        logStatus(`Příchozí hovor od ${peerId.substring(0, 6)}...`);
-                        await handleOffer(data.offer);
-                        // Vyčistíme nabídku po zpracování
-                        await updateDoc(signalRef, { offer: deleteField() });
-                    }
-
-                    // Zpracování příchozí odpovědi (answer)
-                    if (data.answer) {
-                        logStatus("Obdržena odpověď, navazování spojení...");
-                        await handleAnswer(data.answer);
-                        // Vyčistíme odpověď
-                        await updateDoc(signalRef, { answer: deleteField() });
-                    }
-
-                    // Zpracování ICE kandidátů
-                    if (data.candidates && data.candidates.length > 0) {
-                        await handleCandidates(data.candidates);
-                        // Vyčistíme kandidáty
-                        await updateDoc(signalRef, { candidates: deleteField() });
-                    }
-                } catch (error) {
-                    console.error("Chyba při zpracování signálu:", error);
-                    logStatus("Chyba při zpracování signálu.");
-                    isConnecting = false;
-                }
-            });
-        }
 
         /**
          * Vytvoří a nakonfiguruje nové PeerConnection
          */
         function createPeerConnection() {
-            pc = new RTCPeerConnection(servers);
-
-            // Listener pro ICE kandidáty
-            pc.onicecandidate = (event) => {
-                if (event.candidate && peerId) {
-                    // Odeslání kandidáta protějšku přes Firestore
-                    const peerSignalRef = getSignalRef(peerId);
-                    updateDoc(peerSignalRef, {
-                        candidates: arrayUnion(event.candidate.toJSON())
-                    }, { merge: true });
-                }
-            };
+            const peerConnection = new RTCPeerConnection(servers);
 
             // Listener pro stav spojení
-            pc.onconnectionstatechange = () => {
-                logStatus(`Stav připojení: ${pc.connectionState}`);
-                if (pc.connectionState === 'connected') {
-                    // Toto je často spolehlivější než onopen na data channelu
+            peerConnection.onconnectionstatechange = () => {
+                logStatus(`Stav připojení: ${peerConnection.connectionState}`);
+                if (peerConnection.connectionState === 'connected') {
                     enableChat();
-                } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+                } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'closed') {
                     disableChat();
                 }
             };
 
-            return pc;
+            // Tento listener je nutný, aby se začali sbírat kandidáti
+            // kteří se pak zahrnou do nabídky (offer) / odpovědi (answer).
+            peerConnection.onicecandidate = (event) => {
+                 // Pro tuto jednoduchou manuální výměnu spoléháme na to,
+                 // že kandidáti budou přidáni do SDP (offer/answer) automaticky.
+                 // Pokud by spojení selhávalo, museli bychom implementovat
+                 // i manuální výměnu ICE kandidátů, což je složitější.
+                console.log("ICE candidate:", event.candidate);
+            };
+
+            return peerConnection;
         }
 
         /**
@@ -267,132 +166,108 @@
             };
         }
 
-        // --- Logika volajícího (Caller) ---
-
-        /**
-         * Kliknutí na tlačítko "Připojit"
-         */
-        connectButton.onclick = async () => {
-            peerId = peerIdInput.value.trim();
-            if (!peerId) {
-                logStatus("Zadejte prosím ID protějšku.");
-                return;
-            }
-            if (peerId === userId) {
-                logStatus("Nemůžete se připojit sami k sobě.");
-                return;
-            }
-
-            isConnecting = true;
-            logStatus(`Vytvářím nabídku pro ${peerId.substring(0, 6)}...`);
-
+        // --- Logika Hostitele ---
+        createOfferButton.onclick = async () => {
+            logStatus("Vytvářím nabídku...");
             pc = createPeerConnection();
 
-            // Vytvoříme datový kanál
+            // Hostitel vytváří datový kanál
             dataChannel = pc.createDataChannel('chat');
             setupDataChannelEvents(dataChannel);
 
             try {
-                // Vytvoříme nabídku
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
 
-                // Odešleme nabídku protějšku přes Firestore
-                const peerSignalRef = getSignalRef(peerId);
-                const offerPayload = {
-                    from: userId,
-                    type: offer.type,
-                    sdp: offer.sdp
-                };
-                await setDoc(peerSignalRef, { offer: offerPayload }, { merge: true });
+                // Musíme počkat, než se nasbírají ICE kandidáti
+                // Tento 'trik' čeká na 'icegatheringstatechange' na 'complete'
+                await new Promise((resolve) => {
+                    if (pc.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        pc.onicegatheringstatechange = () => {
+                            if (pc.iceGatheringState === 'complete') {
+                                resolve();
+                            }
+                        };
+                    }
+                });
 
-                logStatus("Nabídka odeslána. Čekání na odpověď...");
-
+                // Nyní je localDescription (offer) kompletní i s kandidáty
+                offerTextarea.value = JSON.stringify(pc.localDescription);
+                logStatus("Nabídka vytvořena. Zkopírujte ji a pošlete klientovi.");
             } catch (error) {
                 console.error("Chyba při vytváření nabídky:", error);
                 logStatus("Chyba při vytváření nabídky.");
-                isConnecting = false;
             }
         };
 
-        /**
-         * Zpracování odpovědi od volaného
-         */
-        async function handleAnswer(answer) {
-            if (pc.currentRemoteDescription) {
-                return; // Odpověď již byla nastavena
+        connectHostButton.onclick = async () => {
+            if (!hostAnswerTextarea.value) {
+                logStatus("Vložte prosím odpověď od klienta.");
+                return;
             }
+            if (pc.currentRemoteDescription) {
+                 return; // Již nastaveno
+            }
+
+            logStatus("Připojování...");
             try {
-                const remoteDesc = new RTCSessionDescription(answer);
-                await pc.setRemoteDescription(remoteDesc);
+                const answer = JSON.parse(hostAnswerTextarea.value);
+                await pc.setRemoteDescription(new RTCSessionDescription(answer));
+                logStatus("Odpověď přijata. Navazování spojení...");
             } catch (error) {
                 console.error("Chyba při nastavování odpovědi:", error);
                 logStatus("Chyba při nastavování odpovědi.");
             }
-        }
+        };
 
+        // --- Logika Klienta ---
+        createAnswerButton.onclick = async () => {
+            if (!joinOfferTextarea.value) {
+                logStatus("Vložte prosím nabídku od hostitele.");
+                return;
+            }
 
-        // --- Logika volaného (Callee) ---
-
-        /**
-         * Zpracování příchozí nabídky
-         */
-        async function handleOffer(offer) {
+            logStatus("Vytvářím odpověď...");
             pc = createPeerConnection();
 
-            // Nastavíme listener pro datový kanál (přichází od volajícího)
+            // Klient naslouchá příchozímu datovému kanálu
             pc.ondatachannel = (event) => {
                 dataChannel = event.channel;
                 setupDataChannelEvents(dataChannel);
             };
 
             try {
+                const offer = JSON.parse(joinOfferTextarea.value);
                 await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
-                // Vytvoříme odpověď
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
 
-                // Odešleme odpověď volajícímu
-                const peerSignalRef = getSignalRef(peerId); // peerId je nastaveno z offer.from
-                const answerPayload = {
-                    from: userId,
-                    type: answer.type,
-                    sdp: answer.sdp
-                };
-                await setDoc(peerSignalRef, { answer: answerPayload }, { merge: true });
+                // Počkáme na nasbírání ICE kandidátů pro odpověď
+                await new Promise((resolve) => {
+                    if (pc.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        pc.onicegatheringstatechange = () => {
+                            if (pc.iceGatheringState === 'complete') {
+                                resolve();
+                            }
+                        };
+                    }
+                });
 
-                logStatus("Odpověď odeslána.");
-
+                // Odpověď je kompletní
+                answerTextarea.value = JSON.stringify(pc.localDescription);
+                logStatus("Odpověď vytvořena. Zkopírujte ji a pošlete hostiteli.");
             } catch (error) {
-                console.error("Chyba při zpracování nabídky:", error);
-                logStatus("Chyba při zpracování nabídky.");
-                isConnecting = false;
+                console.error("Chyba při vytváření odpovědi:", error);
+                logStatus("Chyba při vytváření odpovědi.");
             }
-        }
+        };
 
-        // --- Společná logika ---
-
-        /**
-         * Zpracování (přidání) ICE kandidátů
-         */
-        async function handleCandidates(candidates) {
-            if (!pc || !pc.currentRemoteDescription) {
-                logStatus("Nelze přidat kandidáty, dokud není nastaveno remote description.");
-                return;
-            }
-            try {
-                for (const candidate of candidates) {
-                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
-                }
-            } catch (error) {
-                console.error("Chyba při přidávání ICE kandidáta:", error);
-            }
-        }
-
-        /**
-         * Odeslání zprávy
-         */
+        // --- Odeslání zprávy (stejné jako předtím) ---
         sendButton.onclick = () => {
             const message = messageInput.value;
             if (message && dataChannel && dataChannel.readyState === 'open') {
@@ -401,17 +276,13 @@
                 messageInput.value = '';
             }
         };
-
-        // Povolení odeslání i klávesou Enter
         messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !sendButton.disabled) {
                 sendButton.click();
             }
         });
 
-
         // --- Pomocné UI funkce ---
-
         function logStatus(message) {
             console.log(message);
             statusBox.textContent = message;
@@ -421,9 +292,10 @@
             messageInput.disabled = false;
             sendButton.disabled = false;
             logStatus("Připojeno! Můžete chatovat.");
-            isConnecting = false;
-            connectButton.disabled = true;
-            peerIdInput.disabled = true;
+            // Zamkneme tlačítka pro připojení
+            createOfferButton.disabled = true;
+            connectHostButton.disabled = true;
+            createAnswerButton.disabled = true;
             // Vyčistíme první "Zatím žádné zprávy"
             if (chatWindow.children.length === 1 && chatWindow.firstElementChild.classList.contains('text-center')) {
                 chatWindow.innerHTML = '';
@@ -434,40 +306,25 @@
             messageInput.disabled = true;
             sendButton.disabled = true;
             logStatus("Odpojeno. Obnovte stránku pro nové připojení.");
-            isConnecting = false;
-            connectButton.disabled = false;
-            peerIdInput.disabled = false;
-
-            // Ukončíme spojení a listenery
             if (dataChannel) dataChannel.close();
             if (pc) pc.close();
-            if (signalListenerUnsubscribe) signalListenerUnsubscribe();
         }
 
         function addMessageToChat(message, isMe) {
-            // Vyčistíme první "Zatím žádné zprávy"
             if (chatWindow.children.length === 1 && chatWindow.firstElementChild.classList.contains('text-center')) {
                 chatWindow.innerHTML = '';
             }
-
             const bubble = document.createElement('div');
             bubble.textContent = message;
             bubble.classList.add('p-3', 'max-w-xs', 'md:max-w-md', 'break-words');
-
             if (isMe) {
                 bubble.classList.add('chat-bubble-me', 'self-end', 'ml-auto');
             } else {
                 bubble.classList.add('chat-bubble-peer', 'self-start', 'mr-auto');
             }
-
             chatWindow.appendChild(bubble);
-            // Automaticky scrollujeme dolů
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
-
-        // Spustíme inicializaci po načtení stránky
-        window.onload = initFirebase;
-
     </script>
 </body>
 </html>
