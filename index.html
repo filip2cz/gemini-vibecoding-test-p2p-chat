@@ -28,8 +28,8 @@
         }
     </style>
     <!-- KROK 1: Import knihovny PeerJS (pro P2P spojení) -->
-    <!-- Změna CDN na jsdelivr, aby se předešlo chybám MIME type (X-Content-Type-Options: nosniff) -->
-    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peer.min.js"></script>
+    <!-- Oprava překlepu v URL (peer.min.js -> peerjs.min.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <!-- KROK 2: Import knihovny MQTT.js (pro "nástěnku" / seznam uživatelů) -->
     <script src="https://cdn.jsdelivr.net/npm/mqtt@5.7.0/dist/mqtt.min.js"></script>
 </head>
@@ -367,4 +367,5 @@
     </script>
 </body>
 </html>
+
 
