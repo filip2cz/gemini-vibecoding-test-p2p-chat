@@ -339,13 +339,24 @@
 
             dataConnection = conn;
 
-            // TATO ČÁST BYLA OPRAVENA
-            conn.on('open', () => {
+            // ---- ZAČÁTEK OPRAVY ----
+
+            // Vytvoříme funkci, která spustí chat
+            const startChatSession = () => {
                 // Zjistíme jméno protějšku
                 const peerData = onlineUsers.get(conn.peer) || { name: `Uživatel-${conn.peer.substring(0, 4)}` };
                 logStatus(`Spojeno s uživatelem "${peerData.name}". Můžete chatovat.`);
                 enableChat(conn.peer); // Povolíme chat
-            });
+            };
+
+            // 1. Pro volajícího: Navážeme 'open' event
+            conn.on('open', startChatSession);
+
+            // 2. Pro přijímajícího: Zkontrolujeme, zda už 'open' není
+            if (conn.open) {
+                startChatSession();
+            }
+            // ---- KONEC OPRAVY ----
 
             conn.on('data', (data) => {
                 // Příchozí zpráva
@@ -388,15 +399,6 @@
         sendButton.onclick = () => {
             const message = messageInput.value.trim();
 
-            // LADICÍ LOGY
-            console.log('Pokus o odeslání zprávy:');
-            console.log('  Zpráva:', message);
-            console.log('  dataConnection existuje:', !!dataConnection);
-            if (dataConnection) {
-                console.log('  dataConnection.open:', dataConnection.open);
-            }
-            // KONEC LADICÍCH LOGŮ
-
             if (message && dataConnection && dataConnection.open) {
                 try {
                     dataConnection.send(message);
@@ -406,7 +408,7 @@
                     logStatus(`Chyba při odesílání: ${e.message}`);
                     console.error("Chyba dataConnection.send():", e);
                 }
-            } else {
+            } else if (!dataConnection || !dataConnection.open) {
                 logStatus("Nelze odeslat zprávu. Spojení není otevřené.");
             }
         };
