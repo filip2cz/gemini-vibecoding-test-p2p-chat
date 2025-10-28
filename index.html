@@ -110,9 +110,26 @@
                 </div>
             </div>
         </div>
-        <!-- KONEC MODALU -->
-
     </div>
+
+    <!-- MODAL PRO PŘÍCHOZÍ HOVOR (TATO ČÁST CHYBĚLA) -->
+    <div id="incomingCallModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-2">Příchozí hovor</h3>
+                <div class="mb-4">
+                    <p id="incomingCallText" class="text-sm text-gray-600">... se s vámi chce spojit.</p>
+                </div>
+                <div class="flex space-x-4">
+                    <button id="acceptButton" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:text-sm">
+                        Přijmout
+                    </button>
+                    <button id="declineButton" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
+                        Odmítnout
+                    </button>
+                </div>
+        </div>
+    </div>
+    <!-- KONEC MODALU -->
 
     <!-- Logika PeerJS a MQTT.js -->
     <script>
@@ -141,7 +158,7 @@
         const userList = document.getElementById('userList');
         const nameInput = document.getElementById('nameInput');
         const setNameButton = document.getElementById('setNameButton');
-        // Modal elementy
+        // Modal elementy (nyní mají HTML)
         const incomingCallModal = document.getElementById('incomingCallModal');
         const incomingCallText = document.getElementById('incomingCallText');
         const acceptButton = document.getElementById('acceptButton');
@@ -276,12 +293,118 @@
                 `;
                 // Kliknutím na uživatele se připojíme
                 li.onclick = () => {
+                    // Kontrola, zda už nejsme připojeni
+                    if (dataConnection || pendingConnection) {
+                        logStatus("Už jste připojeni nebo máte čekající hovor. Odpojte se.");
+                        return;
+                    }
                     peerIdInput.value = peerId;
-                    connectButton.click();
+                    connectButton.click(); // Spustí logiku connectButton.onclick
                 };
                 userList.appendChild(li);
             });
         }
+
+        /*
+         * NÁSLEDUJÍCÍ KÓD CHYBĚL
+         */
+
+        /**
+         * Funkce pro nastavení všech událostí spojení
+         */
+        function setupConnectionEvents(conn) {
+            conn.on('data', (data) => {
+                addMessageToChat(data, false);
+            });
+
+            conn.on('close', () => {
+                logStatus("Protějšek se odpojil.");
+                disableChat();
+            });
+
+            conn.on('error', (err) => {
+                logStatus(`Chyba spojení: ${err.message}`);
+                disableChat();
+            });
+
+            // Tato funkce povolí chat pro volajícího i přijímajícího
+            const startChatSession = () => {
+                logStatus(`Spojeno s ${conn.peer}`);
+                dataConnection = conn;
+                pendingConnection = null; // Už nečekáme
+                enableChat(conn.peer);
+                incomingCallModal.classList.add('hidden'); // Skryjeme modal
+            };
+
+            // Pro volajícího se 'open' spustí, až protějšek přijme
+            // Pro přijímajícího je 'open' true už při volání setupConnectionEvents
+            if (conn.open) {
+                startChatSession();
+            } else {
+                conn.on('open', startChatSession);
+            }
+        }
+
+        /**
+         * Kliknutí na tlačítko "Připojit" (ručně)
+         */
+        connectButton.onclick = () => {
+            const peerId = peerIdInput.value.trim();
+            if (!peerId) {
+                logStatus("Prosím, vložte ID protějšku.");
+                return;
+            }
+            if (peerId === myId) {
+                logStatus("Nemůžete se připojit sami k sobě.");
+                return;
+            }
+            // Pokud už chatujeme nebo máme čekající hovor, neděláme nic
+            if (dataConnection || pendingConnection) {
+                logStatus("Už jste připojeni nebo máte čekající hovor.");
+                return;
+            }
+
+            logStatus(`Pokouším se připojit k ${peerId}...`);
+            const conn = peer.connect(peerId);
+            setupConnectionEvents(conn);
+        };
+
+        /**
+         * Kliknutí na tlačítko "Odeslat"
+         */
+        sendButton.onclick = () => {
+            const message = messageInput.value.trim();
+            if (message && dataConnection && dataConnection.open) {
+                dataConnection.send(message);
+                addMessageToChat(message, true);
+                messageInput.value = '';
+            } else {
+                logStatus("Nelze odeslat zprávu. Spojení není otevřené.");
+            }
+        };
+
+        /**
+         * Kliknutí na tlačítka modalu
+         */
+        acceptButton.onclick = () => {
+            if (pendingConnection) {
+                setupConnectionEvents(pendingConnection);
+            }
+            incomingCallModal.classList.add('hidden');
+        };
+
+        declineButton.onclick = () => {
+            if (pendingConnection) {
+                pendingConnection.close();
+                pendingConnection = null;
+            }
+            incomingCallModal.classList.add('hidden');
+            logStatus("Hovor odmítnut.");
+        };
+
+        /*
+         * KONEC CHYBĚJÍCÍHO KÓDU
+         */
 
         /**
          * Kliknutí na tlačítko "Nastavit jméno"
@@ -361,10 +484,10 @@
         window.onbeforeunload = () => {
             // Korektní odhlášení z nástěnky
             if (mqttClient && mqttClient.connected) {
-                // Pošleme prázdnou zprávu, která se NEULOŽÍ (retain: false)
-                // Toto je rychlý způsob, jak dát vědět ostatním, že odcházíme
-                // Ale spoléháme hlavně na LWT pro případy pádu
-                mqttClient.publish(`${lobbyTopic}${myId}`, '', { qos: 1, retain: false });
+                // Musíme poslat prázdnou zprávu s RETAIN: TRUE,
+                // aby přepsala naši "online" zprávu, která měla také retain: true.
+                // Tím zajistíme, že LWT (které také pošle prázdnou zprávu) má co přepsat.
+                mqttClient.publish(`${lobbyTopic}${myId}`, '', { qos: 1, retain: true });
                 mqttClient.end();
             }
             // PeerJS spojení se zavřou automaticky
@@ -390,5 +513,6 @@
     </script>
 </body>
 </html>
+
 
 
