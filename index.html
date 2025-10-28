@@ -3,34 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Chat (s PeerJS + User List)</title>
-    <!-- Import Tailwind CSS -->
+    <title>P2P Chat (PeerJS + MQTT Seznam)</title>
+    <!-- Použijeme Tailwind CSS pro rychlý a moderní design -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Import Google Font "Inter" -->
+    <!-- Použijeme font Inter pro hezčí text -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
+        /* Vlastní styly pro bubliny chatu */
         .chat-bubble-me {
-            background-color: #3b82f6; color: white; border-radius: 20px 20px 5px 20px;
+            background-color: #2563eb; /* modrá */
+            color: white;
+            border-radius: 20px 20px 5px 20px;
         }
         .chat-bubble-peer {
-            background-color: #e5e7eb; color: #1f2937; border-radius: 20px 20px 20px 5px;
-        }
-        /* Styl pro seznam uživatelů */
-        #userList li {
-            cursor: pointer;
-            transition: background-color 0.2s;
+            background-color: #e5e7eb; /* světle šedá */
+            color: #1f2937;
+            border-radius: 20px 20px 20px 5px;
         }
         #userList li:hover {
             background-color: #f3f4f6; /* světle šedé pozadí při najetí */
         }
     </style>
     <!-- KROK 1: Import knihovny PeerJS (pro P2P spojení) -->
-    <!-- Oprava překlepu v URL (peer.min.js -> peerjs.min.js) -->
+    <!-- Správná cesta k souboru na CDN -->
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
     <!-- KROK 2: Import knihovny MQTT.js (pro "nástěnku" / seznam uživatelů) -->
+    <!-- Načtení z cdnjs, což je stabilní alternativa -->
     <script src="https://cdn.jsdelivr.net/npm/mqtt@5.7.0/dist/mqtt.min.js"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -41,63 +43,63 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             <!-- Levý sloupec: Uživatelé a připojení -->
-            <div class="md:col-span-1 space-y-6">
-                <!-- Sekce s ID uživatele -->
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h2 class="text-lg font-semibold text-blue-800">Vaše ID</h2>
-                    <div class="mt-2 bg-white rounded-md p-3 text-center font-mono text-gray-700 select-all break-all text-sm" id="userIdDisplay">
-                        Připojování...
-                    </div>
+            <div class="md:col-span-1 border-r border-gray-200 pr-6 space-y-4">
+
+                <!-- Moje ID a Jméno -->
+                <div>
+                    <label for="myPeerId" class="block text-sm font-medium text-gray-700">Vaše ID pro připojení</label>
+                    <input type="text" id="myPeerId" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm text-sm" readonly placeholder="Generuji...">
                 </div>
 
-                <!-- NOVÁ Sekce: Nastavení jména -->
-                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h2 class="text-lg font-semibold text-gray-800 mb-3">Vaše jméno</h2>
-                    <div class="space-y-3">
-                        <input type="text" id="nameInput" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5" placeholder="Zadejte své jméno..." disabled>
-                        <button id="setNameButton" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:bg-gray-300" disabled>
-                            Nastavit jméno
+                <div>
+                    <label for="nameInput" class="block text-sm font-medium text-gray-700">Vaše jméno</label>
+                    <div class="mt-1 flex rounded-md shadow-sm">
+                        <input type="text" id="nameInput" class="flex-1 block w-full min-w-0 rounded-none rounded-l-md px-3 py-2 border border-gray-300 text-sm" placeholder="Anonymní Uživatel">
+                        <button id="setNameButton" class="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                            Nastavit
                         </button>
                     </div>
                 </div>
 
-                <!-- Sekce Seznam uživatelů -->
-                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h2 class="text-lg font-semibold text-gray-800 mb-3">Online Uživatelé</h2>
-                    <div id="userListContainer" class="h-60 overflow-y-auto">
-                        <ul id="userList" class="space-y-2">
-                            <li class="text-gray-400 text-sm">Načítání seznamu...</li>
-                        </ul>
+                <!-- Manuální připojení -->
+                <div>
+                    <label for="peerIdInput" class="block text-sm font-medium text-gray-700">Připojit ručně (ID protějšku)</label>
+                    <div class="mt-1 flex rounded-md shadow-sm">
+                        <input type="text" id="peerIdInput" class="flex-1 block w-full min-w-0 rounded-none rounded-l-md px-3 py-2 border border-gray-300 text-sm" placeholder="Vložte ID...">
+                        <button id="connectButton" class="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                            Připojit
+                        </button>
                     </div>
                 </div>
 
-                <!-- Sekce pro připojení (může být skrytá, pokud používáme jen seznam) -->
-                <div class="space-y-4">
-                    <div>
-                        <label for="peerIdInput" class="block text-sm font-medium text-gray-700">ID protějšku</label>
-                        <input type="text" id="peerIdInput" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5" placeholder="Nebo vložte ID ručně">
-                    </div>
-                    <button id="connectButton" class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                        Připojit ručně
-                    </button>
+                <!-- Seznam online uživatelů -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Online uživatelé</h3>
+                    <ul id="userList" class="h-64 overflow-y-auto bg-white border border-gray-200 rounded-md divide-y divide-gray-200">
+                        <li class="p-3 text-center text-gray-500 text-sm">Načítání seznamu...</li>
+                        <!-- Uživatelé budou vkládáni sem -->
+                    </ul>
                 </div>
             </div>
 
             <!-- Pravý sloupec: Chat -->
             <div class="md:col-span-2 space-y-4 flex flex-col">
+
                 <!-- Stav připojení -->
-                <div id="statusBox" class="text-sm text-center text-gray-500 p-2 bg-gray-50 rounded-md">
-                    Očekávání akce...
+                <div class="h-10">
+                    <div id="statusBox" class="text-sm text-center font-medium p-2 rounded-md bg-blue-50 text-blue-700">
+                        Inicializace...
+                    </div>
                 </div>
 
-                <!-- Chatovací okno -->
-                <div id="chatWindow" class="h-96 w-full bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4 overflow-y-auto flex-grow">
-                    <div class="text-center text-gray-400">Zatím žádné zprávy</div>
+                <!-- Okno chatu -->
+                <div id="chatWindow" class="flex-1 h-80 overflow-y-auto bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
+                    <div class="text-center text-gray-400 text-sm">Zde se zobrazí zprávy...</div>
                 </div>
 
-                <!-- Odeslání zprávy -->
-                <div class="flex space-x-3">
-                    <input type="text" id="messageInput" class="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5" placeholder="Napište zprávu..." disabled>
+                <!-- Vstup pro zprávu -->
+                <div class="flex space-x-2">
+                    <input type="text" id="messageInput" class="flex-1 block w-full px-3 py-2.5 border border-gray-300 rounded-md shadow-sm text-sm" placeholder="Napsat zprávu..." disabled>
                     <button id="sendButton" class="inline-flex items-center px-4 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400" disabled>
                         Odeslat
                     </button>
@@ -105,7 +107,7 @@
             </div>
         </div>
 
-        <!-- ***** NOVÝ PRVEK: MODAL PRO PŘÍCHOZÍ HOVOR ***** -->
+        <!-- MODAL PRO PŘÍCHOZÍ HOVOR -->
         <div id="incomingCallModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
                 <h3 class="text-lg font-medium leading-6 text-gray-900 mb-2">Příchozí hovor</h3>
@@ -122,7 +124,7 @@
                 </div>
             </div>
         </div>
-        <!-- ***** KONEC MODALU ***** -->
+        <!-- KONEC MODALU -->
 
     </div>
 
@@ -135,25 +137,25 @@
         let myId;
         let myName = '';
 
-        // MQTT proměnné (pro "nástěnku")
+        // MQTT proměnné
         let mqttClient;
         const onlineUsers = new Map();
-        // ZMĚNA: Přidáno "-v2" do názvu topicu, abychom se zbavili "duchů" z předchozí verze
-        const PRESENCE_TOPIC_PREFIX = 'p2p-chat-app/gemini-lobby-v2/presence/';
-        const BROKER_URL = 'wss://broker.hivemq.com:8884/mqtt'; // Veřejný MQTT broker
+        // Unikátní "místnost" pro naši aplikaci (verze 2 pro čistý start)
+        const lobbyTopic = 'p2p-chat-app/gemini-lobby-v2/presence/';
+        const brokerUrl = 'wss://broker.hivemq.com:8884/mqtt'; // Veřejný MQTT broker
 
         // DOM Elementy
-        const userIdDisplay = document.getElementById('userIdDisplay');
+        const myPeerIdEl = document.getElementById('myPeerId');
         const peerIdInput = document.getElementById('peerIdInput');
         const connectButton = document.getElementById('connectButton');
+        const statusBox = document.getElementById('statusBox');
         const chatWindow = document.getElementById('chatWindow');
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
-        const statusBox = document.getElementById('statusBox');
         const userList = document.getElementById('userList');
         const nameInput = document.getElementById('nameInput');
         const setNameButton = document.getElementById('setNameButton');
-        // Nové DOM elementy pro modal
+        // Modal elementy
         const incomingCallModal = document.getElementById('incomingCallModal');
         const incomingCallText = document.getElementById('incomingCallText');
         const acceptButton = document.getElementById('acceptButton');
@@ -163,33 +165,22 @@
          * KROK 1: Inicializace PeerJS (pro P2P spojení)
          */
         function initializePeer() {
-            try {
-                peer = new Peer(); // Připojí se k veřejnému PeerJS serveru
-            } catch (e) {
-                logStatus(`Chyba při inicializaci Peer: ${e.message}. Zkuste obnovit stránku.`);
-                console.error("PeerJS initialization error:", e);
-                return;
-            }
+            peer = new Peer(); // PeerJS se sám připojí k veřejnému serveru
 
+            // Po úspěšném připojení k PeerJS serveru
             peer.on('open', (id) => {
                 myId = id;
-                userIdDisplay.textContent = id;
-                logStatus("Připraven. Vyberte uživatele ze seznamu.");
-
-                // Povolíme nastavení jména
-                myName = `Uživatel-${myId.substring(0, 4)}`;
+                myPeerIdEl.value = id;
+                myName = `Uživatel-${id.substring(0, 4)}`; // Výchozí jméno
                 nameInput.value = myName;
-                nameInput.disabled = false;
-                setNameButton.disabled = false;
+                logStatus("Připraven k připojení.");
 
                 // Jakmile máme ID, připojíme se k "nástěnce"
-                initializeMqtt();
+                initializeMQTT();
             });
 
             // Listener pro příchozí spojení
             peer.on('connection', (conn) => {
-                // ZMĚNA: Automaticky nepřijímáme hovor
-
                 // Pokud už chatujeme nebo máme čekající hovor, odmítneme
                 if (dataConnection || pendingConnection) {
                     conn.close();
@@ -210,147 +201,114 @@
             });
 
             peer.on('error', (err) => logStatus(`Chyba PeerJS: ${err.message}`));
-            peer.on('disconnected', () => logStatus("Odpojeno od PeerJS."));
+            peer.on('disconnected', () => logStatus('PeerJS odpojeno, pokouším se znovu...'));
         }
 
         /**
-         * KROK 2: Inicializace MQTT (pro "nástěnku" / seznam uživatelů)
+         * KROK 2: Inicializace MQTT (pro "nástěnku")
          */
-        function initializeMqtt() {
-            // ----- ZAČÁTEK ZMĚNY: Přidání "Poslední vůle" (LWT) -----
-            // Toto je oprava chyby, kdy uživatelé zůstávali "viset" online.
-            // Říkáme brokeru: "Pokud se odpojím neočekávaně (crash, ztráta sítě),
-            // automaticky za mě pošli tuto zprávu."
-            const myPresenceTopic = `${PRESENCE_TOPIC_PREFIX}${myId}`;
+        function initializeMQTT() {
+            // "Poslední vůle" (LWT) - zpráva, kterou server pošle, když spadneme
+            const lwtTopic = `${lobbyTopic}${myId}`;
             const lwtOptions = {
-                will: {
-                    topic: myPresenceTopic,
-                    payload: '', // Prázdná zpráva (offline)
-                    qos: 1,      // Quality of Service
-                    retain: true // Přepíše "online" zprávu
-                }
+                topic: lwtTopic,
+                payload: '', // Prázdná zpráva znamená "offline"
+                qos: 1,
+                retain: true // Tato prázdná zpráva přemaže tu "online"
             };
 
-            try {
-                // Předáme LWT nastavení hned při připojení
-                mqttClient = mqtt.connect(BROKER_URL, lwtOptions);
-            } catch (e) {
-            // ----- KONEC ZMĚNY -----
-                logStatus(`Chyba při připojování k MQTT: ${e.message}. Seznam uživatelů nebude fungovat.`);
-                console.error("MQTT initialization error:", e);
-                return;
-            }
+            const options = {
+                clientId: `p2p-chat-${myId}`,
+                keepalive: 60,
+                will: lwtOptions // Aktivujeme "Poslední vůli"
+            };
+
+            mqttClient = mqtt.connect(brokerUrl, options);
 
             mqttClient.on('connect', () => {
-                logStatus("Připojeno k seznamu uživatelů...");
-
-                // 1. Přihlásíme se k odběru všech zpráv o přítomnosti
-                mqttClient.subscribe(`${PRESENCE_TOPIC_PREFIX}+`, (err) => {
-                    if (err) logStatus("Chyba při registraci do seznamu.");
-                });
-
-                // 2. Oznámíme naši přítomnost (poprvé s výchozím jménem)
-                publishPresence();
+                logStatus("Připojen k seznamu uživatelů.");
+                // Přihlásíme se k odběru všech zpráv v naší "místnosti"
+                mqttClient.subscribe(lobbyTopic + '#', { qos: 1 });
+                // Dáme vědět ostatním, že jsme online
+                sendPresence();
             });
 
-            // Zpracování příchozích zpráv (lidé se připojují/odpojují)
             mqttClient.on('message', (topic, payload) => {
-                const peerId = topic.split('/')[3];
+                const peerId = topic.substring(lobbyTopic.length);
                 if (peerId === myId) return; // Ignorujeme vlastní zprávy
 
-                const payloadStr = payload.toString();
+                const message = payload.toString();
 
-                if (payloadStr) {
-                    // Někdo přišel nebo je přítomen
+                if (message) {
+                    // Někdo je online nebo aktualizoval jméno
                     try {
-                        const userData = JSON.parse(payloadStr);
-                        onlineUsers.set(peerId, userData);
-                    } catch (e) {
-                        // V případě chyby
-                        onlineUsers.set(peerId, { name: `Uživatel-${peerId.substring(0,4)}` });
-                    }
+                        const data = JSON.parse(message);
+                        if (data.name) {
+                            onlineUsers.set(peerId, data);
+                        }
+                    } catch (e) { /* ignorujeme poškozené zprávy */ }
                 } else {
-                    // Payload je prázdný = někdo odešel
+                    // Někdo poslal prázdnou zprávu = je offline
                     onlineUsers.delete(peerId);
                 }
-                renderUserList();
+                updateUserListDOM();
             });
 
-            mqttClient.on('error', (err) => logStatus("Chyba MQTT nástěnky."));
-
-            // Když uživatel zavře okno, odhlásíme ho (toto je pro NORMÁLNÍ odchod)
-            // LWT (viz výše) řeší pády a ztrátu sítě.
-            window.onbeforeunload = () => {
-                // Zkontrolujeme, zda mqttClient existuje a je připojen
-                if (mqttClient && mqttClient.connected) {
-                    const myPresenceTopic = `${PRESENCE_TOPIC_PREFIX}${myId}`;
-                    // Pošleme prázdnou zprávu s 'retain: true',
-                    // čímž "odpíchneme" naši původní zprávu ze serveru.
-                    mqttClient.publish(myPresenceTopic, '', { retain: true });
-                    mqttClient.end();
-                }
-            };
+            mqttClient.on('error', (err) => logStatus("Chyba MQTT: Nelze se připojit k seznamu."));
         }
 
         /**
-         * Odešle naši přítomnost (jméno) na MQTT "nástěnku"
+         * KROK 3: Odeslání naší "vizitky" (jména a ID) na nástěnku
          */
-        function publishPresence() {
-            if (!mqttClient || !mqttClient.connected || !myId) return;
-
-            const myPresenceTopic = `${PRESENCE_TOPIC_PREFIX}${myId}`;
-            const myPresencePayload = JSON.stringify({ name: myName });
-
-            // 'retain: true' znamená, že server si zprávu "připne"
-            // a pošle ji každému, kdo se připojí po nás.
-            mqttClient.publish(myPresenceTopic, myPresencePayload, { retain: true });
+        function sendPresence() {
+            if (mqttClient && mqttClient.connected && myId && myName) {
+                const payload = JSON.stringify({ name: myName });
+                // `retain: true` znamená, že server si zprávu uloží
+                // pro nově příchozí uživatele.
+                mqttClient.publish(`${lobbyTopic}${myId}`, payload, { qos: 1, retain: true });
+            }
         }
 
         /**
-         * Vykreslí seznam online uživatelů do HTML
+         * KROK 4: Aktualizace seznamu uživatelů v HTML
          */
-        function renderUserList() {
-            userList.innerHTML = ''; // Vyčistit seznam
+        function updateUserListDOM() {
+            userList.innerHTML = ''; // Vyčistíme seznam
             if (onlineUsers.size === 0) {
-                userList.innerHTML = '<li class="text-gray-400 text-sm">Nikdo není online.</li>';
+                userList.innerHTML = '<li class="p-3 text-center text-gray-500 text-sm">Nikdo není online.</li>';
                 return;
             }
 
-            onlineUsers.forEach((user, peerId) => {
+            onlineUsers.forEach((data, peerId) => {
                 const li = document.createElement('li');
-                li.className = 'p-2 rounded-md flex justify-between items-center';
-                li.textContent = user.name || `Uživatel-${peerId.substring(0, 4)}`;
-                li.dataset.peerId = peerId; // Uložíme si ID pro kliknutí
+                li.className = 'p-3 flex justify-between items-center cursor-pointer';
+                li.innerHTML = `
+                    <span class="font-medium text-gray-800">${data.name}</span>
+                    <span class="text-xs text-gray-400">${peerId.substring(0, 6)}...</span>
+                `;
+                // Kliknutím na uživatele se připojíme
+                li.onclick = () => {
+                    peerIdInput.value = peerId;
+                    connectButton.click();
+                };
                 userList.appendChild(li);
             });
         }
-
-        /**
-         * Kliknutí na uživatele v seznamu
-         */
-        userList.onclick = (e) => {
-            const li = e.target.closest('li');
-            if (li && li.dataset.peerId) {
-                const peerId = li.dataset.peerId;
-                peerIdInput.value = peerId;
-                connectButton.click(); // Automaticky se připojíme
-            }
-        };
 
         /**
          * Kliknutí na tlačítko "Nastavit jméno"
          */
         setNameButton.onclick = () => {
             const newName = nameInput.value.trim();
-            if (newName && newName !== myName) {
+            if (newName) {
                 myName = newName;
-                logStatus("Jméno aktualizováno.");
-                publishPresence(); // Znovu odešleme info s novým jménem
+                sendPresence(); // Aktualizujeme jméno na nástěnce
+                logStatus(`Jméno nastaveno na: ${myName}`);
             }
         };
 
         /**
-         * NOVÉ: Tlačítka pro přijetí / odmítnutí hovoru
+         * Tlačítka pro přijetí / odmítnutí hovoru
          */
         acceptButton.onclick = () => {
             if (pendingConnection) {
@@ -381,7 +339,7 @@
 
             dataConnection = conn;
 
-            // TATO ČÁST BYLA ROZBITÁ A NYNÍ JE OPRAVENA
+            // TATO ČÁST BYLA OPRAVENA
             conn.on('open', () => {
                 // Zjistíme jméno protějšku
                 const peerData = onlineUsers.get(conn.peer) || { name: `Uživatel-${conn.peer.substring(0, 4)}` };
@@ -389,19 +347,16 @@
                 enableChat(conn.peer); // Povolíme chat
             });
 
-            // TATO ČÁST CHYBĚLA
             conn.on('data', (data) => {
                 // Příchozí zpráva
                 addMessageToChat(data, false);
             });
 
-            // TATO ČÁST CHYBĚLA
             conn.on('close', () => {
                 logStatus(`Protějšek se odpojil.`);
                 disableChat();
             });
 
-            // Tato část byla v pořádku
             conn.on('error', (err) => {
                 logStatus(`Chyba spojení: ${err.message}`);
                 disableChat();
@@ -413,11 +368,12 @@
          */
         connectButton.onclick = () => {
             const peerId = peerIdInput.value.trim();
-            // ZMĚNA: Kontrolujeme i pendingConnection
+            // Kontrolujeme i pendingConnection
             if (!peerId || peerId === myId || dataConnection || pendingConnection) {
                 let reason = "Zadejte platné ID.";
                 if (dataConnection) reason = "Už jste připojeni.";
                 if (pendingConnection) reason = "Nejprve odpovězte na čekající hovor.";
+                if (peerId === myId) reason = "Nelze se připojit sám k sobě.";
                 logStatus(reason);
                 return;
             }
@@ -427,26 +383,38 @@
         };
 
         /**
-         * Odeslání zprávy
+         * Logika pro tlačítko "Odeslat"
          */
         sendButton.onclick = () => {
-            const message = messageInput.value;
+            const message = messageInput.value.trim();
+
+            // LADICÍ LOGY
+            console.log('Pokus o odeslání zprávy:');
+            console.log('  Zpráva:', message);
+            console.log('  dataConnection existuje:', !!dataConnection);
+            if (dataConnection) {
+                console.log('  dataConnection.open:', dataConnection.open);
+            }
+            // KONEC LADICÍCH LOGŮ
+
             if (message && dataConnection && dataConnection.open) {
-                dataConnection.send(message);
-                addMessageToChat(message, true);
-                messageInput.value = '';
+                try {
+                    dataConnection.send(message);
+                    addMessageToChat(message, true);
+                    messageInput.value = '';
+                } catch (e) {
+                    logStatus(`Chyba při odesílání: ${e.message}`);
+                    console.error("Chyba dataConnection.send():", e);
+                }
+            } else {
+                logStatus("Nelze odeslat zprávu. Spojení není otevřené.");
             }
         };
-        messageInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !sendButton.disabled) {
-                sendButton.click();
-            }
-        });
 
-        // --- Pomocné UI funkce ---
-
+        /**
+         * Pomocné funkce
+         */
         function logStatus(message) {
-            console.log(message);
             statusBox.textContent = message;
         }
 
@@ -479,45 +447,52 @@
         }
 
         function addMessageToChat(message, isMe) {
+            const bubble = document.createElement('div');
+            bubble.className = `max-w-xs md:max-w-md p-3 break-words ${isMe ? 'chat-bubble-me self-end' : 'chat-bubble-peer self-start'}`;
+            bubble.textContent = message;
+
+            // Pokud je chat prázdný, odstraníme placeholder
             if (chatWindow.children.length === 1 && chatWindow.firstElementChild.classList.contains('text-center')) {
                 chatWindow.innerHTML = '';
             }
-            const bubble = document.createElement('div');
-            bubble.textContent = message;
-            bubble.classList.add('p-3', 'max-w-xs', 'md:max-w-md', 'break-words');
-            if (isMe) {
-                bubble.classList.add('chat-bubble-me', 'self-end', 'ml-auto');
-            } else {
-                bubble.classList.add('chat-bubble-peer', 'self-start', 'mr-auto');
-            }
+
             chatWindow.appendChild(bubble);
-            chatWindow.scrollTop = chatWindow.scrollHeight;
+            chatWindow.scrollTop = chatWindow.scrollHeight; // Auto-scroll na dno
         }
 
-        // Spustíme inicializaci
-        window.onload = () => {
-            // Přidáme try-catch blok pro případ, že by knihovny nebyly načteny
-            try {
-                if (typeof Peer === 'undefined') {
-                    throw new Error("Knihovna PeerJS se nenačetla.");
-                }
-                if (typeof mqtt === 'undefined') {
-                    throw new Error("Knihovna MQTT.js se nenačetla.");
-                }
-                initializePeer();
-            } catch (e) {
-                logStatus(`Kritická chyba: ${e.message}. Obnovte stránku nebo zkontrolujte síť.`);
-                console.error("Initialization failed:", e);
-                document.getElementById('userIdDisplay').textContent = "Chyba";
-                document.getElementById('userList').innerHTML = '<li class="text-red-500 text-sm">Načítání selhalo.</li>';
+        /**
+         * Čištění při odchodu ze stránky
+         */
+        window.onbeforeunload = () => {
+            // Korektní odhlášení z nástěnky
+            if (mqttClient && mqttClient.connected) {
+                // Pošleme prázdnou zprávu, která se NEULOŽÍ (retain: false)
+                // Toto je rychlý způsob, jak dát vědět ostatním, že odcházíme
+                // Ale spoléháme hlavně na LWT pro případy pádu
+                mqttClient.publish(`${lobbyTopic}${myId}`, '', { qos: 1, retain: false });
+                mqttClient.end();
             }
+            // PeerJS spojení se zavřou automaticky
+            if (dataConnection) dataConnection.close();
+            if (peer) peer.destroy();
+        };
+
+        /**
+         * Kontrola načtení knihoven a start
+         */
+        window.onload = () => {
+            if (typeof Peer === 'undefined') {
+                logStatus("CHYBA: Knihovnu PeerJS se nepodařilo načíst. Zkuste obnovit stránku.");
+                return;
+            }
+            if (typeof mqtt === 'undefined') {
+                logStatus("CHYBA: Knihovnu MQTT se nepodařilo načíst. Zkuste obnovit stránku.");
+                return;
+            }
+            initializePeer();
         };
 
     </script>
 </body>
 </html>
-
-
-
-
 

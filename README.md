@@ -3,4 +3,4 @@ V rámci testování AI jsem se rozhodl vyzkoušet vytvořit zcela funkční pee
 
 chat:
 
-https://gemini.google.com/share/904e3a7cd84b
+https://gemini.google.com/share/765e220de54c
