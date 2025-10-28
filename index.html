@@ -103,7 +103,7 @@
                     <button id="sendButton" class="inline-flex items-center px-4 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400" disabled>
                         Odeslat
                     </button>
-                    <!-- NOVÉ TLAČÍTKO ODPOJIT -->
+                    <!-- NOVÉ TLAČÍTKO PRO ODPOJENÍ -->
                     <button id="disconnectButton" class="inline-flex items-center px-4 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400" disabled>
                         Odpojit
                     </button>
@@ -138,10 +138,10 @@
         const chatWindow = document.getElementById('chatWindow');
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
+        const disconnectButton = document.getElementById('disconnectButton'); // PŘIDÁNO
         const userList = document.getElementById('userList');
         const nameInput = document.getElementById('nameInput');
         const setNameButton = document.getElementById('setNameButton');
-        const disconnectButton = document.getElementById('disconnectButton'); // Přidáno
         // Modal elementy
         const incomingCallModal = document.getElementById('incomingCallModal');
         const incomingCallText = document.getElementById('incomingCallText');
@@ -275,6 +275,14 @@
                 `;
                 // Kliknutím na uživatele se připojíme
                 li.onclick = () => {
+                    // ---- ZAČÁTEK OPRAVY ----
+                    // Přidáme stejnou kontrolu i sem
+                    if (dataConnection || pendingConnection) {
+                        logStatus(dataConnection ? "Už jste připojeni." : "Nejprve odpovězte na čekající hovor.");
+                        return;
+                    }
+                    // ---- KONEC OPRAVY ----
+
                     peerIdInput.value = peerId;
                     connectButton.click();
                 };
@@ -295,21 +303,46 @@
         };
 
         /**
-         * Logika pro tlačítko "Odpojit"
+         * Logika pro tlačítko "Odeslat"
+         */
+        sendButton.onclick = () => {
+            const message = messageInput.value.trim();
+
+            if (message && dataConnection && dataConnection.open) {
+                try {
+                    dataConnection.send(message);
+                    addMessageToChat(message, true);
+                    messageInput.value = '';
+                } catch (e) {
+                    logStatus(`Chyba při odesílání: ${e.message}`);
+                    console.error("Chyba dataConnection.send():", e);
+                }
+            } else if (!dataConnection || !dataConnection.open) {
+                logStatus("Nelze odeslat zprávu. Spojení není otevřené.");
+            }
+        };
+
+        /**
+         * PŘIDÁNO: Logika pro tlačítko "Odpojit"
          */
         disconnectButton.onclick = () => {
-            // Jednoduše obnovíme stránku, což restartuje PeerJS i MQTT
-            // window.onbeforeunload se postará o základní úklid
-            window.location.reload();
+            if (dataConnection) {
+                logStatus("Odpojili jste se.");
+                disableChat(); // Tato funkce již obsahuje dataConnection.close() a reset UI
+            }
         };
 
         /**
          * Pomocné funkce
          */
+        function logStatus(message) {
+            statusBox.textContent = message;
+        }
+
         function enableChat(peerId) {
             messageInput.disabled = false;
             sendButton.disabled = false;
-            disconnectButton.disabled = false; // Přidáno
+            disconnectButton.disabled = false; // PŘIDÁNO
             connectButton.disabled = true; // Zablokujeme další volání
             peerIdInput.value = peerId;
             peerIdInput.disabled = true;
@@ -321,7 +354,7 @@
         function disableChat() {
             messageInput.disabled = true;
             sendButton.disabled = true;
-            disconnectButton.disabled = true; // Přidáno
+            disconnectButton.disabled = true; // PŘIDÁNO
             connectButton.disabled = false; // Povolíme volání
             peerIdInput.disabled = false;
             peerIdInput.value = '';
@@ -385,3 +418,5 @@
     </script>
 </body>
 </html>
+
+
