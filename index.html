@@ -28,10 +28,10 @@
         }
     </style>
     <!-- KROK 1: Import knihovny PeerJS (pro P2P spojení) -->
-    <!-- Změna z unpkg na cdnjs a pin na stabilní verzi, aby se předešlo chybám cache (NS_ERROR_CORRUPTED_CONTENT) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peer.min.js"></script>
+    <!-- Změna CDN na jsdelivr, aby se předešlo chybám MIME type (X-Content-Type-Options: nosniff) -->
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peer.min.js"></script>
     <!-- KROK 2: Import knihovny MQTT.js (pro "nástěnku" / seznam uživatelů) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.7.0/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.7.0/dist/mqtt.min.js"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
@@ -122,7 +122,13 @@
          * KROK 1: Inicializace PeerJS (pro P2P spojení)
          */
         function initializePeer() {
-            peer = new Peer(); // Připojí se k veřejnému PeerJS serveru
+            try {
+                peer = new Peer(); // Připojí se k veřejnému PeerJS serveru
+            } catch (e) {
+                logStatus(`Chyba při inicializaci Peer: ${e.message}. Zkuste obnovit stránku.`);
+                console.error("PeerJS initialization error:", e);
+                return;
+            }
 
             peer.on('open', (id) => {
                 myId = id;
@@ -151,7 +157,13 @@
          * KROK 2: Inicializace MQTT (pro "nástěnku" / seznam uživatelů)
          */
         function initializeMqtt() {
-            mqttClient = mqtt.connect(BROKER_URL);
+            try {
+                mqttClient = mqtt.connect(BROKER_URL);
+            } catch (e) {
+                logStatus(`Chyba při připojování k MQTT: ${e.message}. Seznam uživatelů nebude fungovat.`);
+                console.error("MQTT initialization error:", e);
+                return;
+            }
 
             const myPresenceTopic = `${PRESENCE_TOPIC_PREFIX}${myId}`;
             const myPresencePayload = JSON.stringify({ name: `Uživatel-${myId.substring(0, 4)}` });
@@ -197,10 +209,13 @@
 
             // Když uživatel zavře okno, odhlásíme ho
             window.onbeforeunload = () => {
-                // Pošleme prázdnou zprávu s 'retain: true',
-                // čímž "odpíchneme" naši původní zprávu ze serveru.
-                mqttClient.publish(myPresenceTopic, '', { retain: true });
-                mqttClient.end();
+                // Zkontrolujeme, zda mqttClient existuje a je připojen
+                if (mqttClient && mqttClient.connected) {
+                    // Pošleme prázdnou zprávu s 'retain: true',
+                    // čímž "odpíchneme" naši původní zprávu ze serveru.
+                    mqttClient.publish(myPresenceTopic, '', { retain: true });
+                    mqttClient.end();
+                }
             };
         }
 
@@ -331,10 +346,25 @@
         }
 
         // Spustíme inicializaci
-        window.onload = initializePeer;
+        window.onload = () => {
+            // Přidáme try-catch blok pro případ, že by knihovny nebyly načteny
+            try {
+                if (typeof Peer === 'undefined') {
+                    throw new Error("Knihovna PeerJS se nenačetla.");
+                }
+                if (typeof mqtt === 'undefined') {
+                    throw new Error("Knihovna MQTT.js se nenačetla.");
+                }
+                initializePeer();
+            } catch (e) {
+                logStatus(`Kritická chyba: ${e.message}. Obnovte stránku nebo zkontrolujte síť.`);
+                console.error("Initialization failed:", e);
+                document.getElementById('userIdDisplay').textContent = "Chyba";
+                document.getElementById('userList').innerHTML = '<li class="text-red-500 text-sm">Načítání selhalo.</li>';
+            }
+        };
 
     </script>
 </body>
 </html>
-
 
