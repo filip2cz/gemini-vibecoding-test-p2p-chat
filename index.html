@@ -35,7 +35,7 @@
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
-    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-xl p-6 md:p-8">
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-xl p-6 md:p-8 relative">
         <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">P2P Chat</h1>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -104,6 +104,26 @@
                 </div>
             </div>
         </div>
+
+        <!-- ***** NOVÝ PRVEK: MODAL PRO PŘÍCHOZÍ HOVOR ***** -->
+        <div id="incomingCallModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-2">Příchozí hovor</h3>
+                <div class="mb-4">
+                    <p id="incomingCallText" class="text-sm text-gray-600">... se s vámi chce spojit.</p>
+                </div>
+                <div class="flex space-x-4">
+                    <button id="acceptButton" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:text-sm">
+                        Přijmout
+                    </button>
+                    <button id="declineButton" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
+                        Odmítnout
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- ***** KONEC MODALU ***** -->
+
     </div>
 
     <!-- Logika PeerJS a MQTT.js -->
@@ -111,6 +131,7 @@
         // PeerJS proměnné
         let peer;
         let dataConnection;
+        let pendingConnection = null; // Uchováme si čekající spojení
         let myId;
         let myName = '';
 
@@ -132,6 +153,11 @@
         const userList = document.getElementById('userList');
         const nameInput = document.getElementById('nameInput');
         const setNameButton = document.getElementById('setNameButton');
+        // Nové DOM elementy pro modal
+        const incomingCallModal = document.getElementById('incomingCallModal');
+        const incomingCallText = document.getElementById('incomingCallText');
+        const acceptButton = document.getElementById('acceptButton');
+        const declineButton = document.getElementById('declineButton');
 
         /**
          * KROK 1: Inicializace PeerJS (pro P2P spojení)
@@ -162,12 +188,25 @@
 
             // Listener pro příchozí spojení
             peer.on('connection', (conn) => {
-                logStatus(`Příchozí spojení od ${conn.peer.substring(0, 6)}...`);
-                if (dataConnection) {
+                // ZMĚNA: Automaticky nepřijímáme hovor
+
+                // Pokud už chatujeme nebo máme čekající hovor, odmítneme
+                if (dataConnection || pendingConnection) {
                     conn.close();
                     return;
                 }
-                setupConnectionEvents(conn);
+
+                // Uložíme si čekající spojení
+                pendingConnection = conn;
+
+                // Zjistíme jméno volajícího
+                const callerData = onlineUsers.get(conn.peer) || { name: `Uživatel-${conn.peer.substring(0, 4)}` };
+
+                // Zobrazíme modal
+                incomingCallText.textContent = `Uživatel "${callerData.name}" se s vámi chce spojit.`;
+                incomingCallModal.classList.remove('hidden');
+
+                logStatus(`Příchozí hovor od ${callerData.name}...`);
             });
 
             peer.on('error', (err) => logStatus(`Chyba PeerJS: ${err.message}`));
@@ -311,17 +350,33 @@
         };
 
         /**
+         * NOVÉ: Tlačítka pro přijetí / odmítnutí hovoru
+         */
+        acceptButton.onclick = () => {
+            if (pendingConnection) {
+                setupConnectionEvents(pendingConnection);
+                pendingConnection = null;
+                incomingCallModal.classList.add('hidden');
+            }
+        };
+
+        declineButton.onclick = () => {
+            if (pendingConnection) {
+                pendingConnection.close();
+                pendingConnection = null;
+                incomingCallModal.classList.add('hidden');
+                logStatus("Hovor odmítnut.");
+            }
+        };
+
+        /**
          * Společná funkce pro nastavení událostí spojení (PeerJS)
          */
         function setupConnectionEvents(conn) {
             dataConnection = conn;
             conn.on('open', () => {
                 logStatus(`Připojeno k ${conn.peer.substring(0, 6)}!`);
-                enableChat(conn.peer);
-            });
-            conn.on('data', (data) => addMessageToChat(data, false));
-            conn.on('close', () => {
-                logStatus("Protějšek se odpojil.");
+                logStatus(`Protějšek se odpojil.`);
                 disableChat();
             });
             conn.on('error', (err) => {
@@ -335,8 +390,12 @@
          */
         connectButton.onclick = () => {
             const peerId = peerIdInput.value.trim();
-            if (!peerId || peerId === myId || dataConnection) {
-                logStatus(dataConnection ? "Už jste připojeni." : "Zadejte platné ID.");
+            // ZMĚNA: Kontrolujeme i pendingConnection
+            if (!peerId || peerId === myId || dataConnection || pendingConnection) {
+                let reason = "Zadejte platné ID.";
+                if (dataConnection) reason = "Už jste připojeni.";
+                if (pendingConnection) reason = "Nejprve odpovězte na čekající hovor.";
+                logStatus(reason);
                 return;
             }
             logStatus(`Pokouším se připojit k ${peerId.substring(0, 6)}...`);
@@ -371,7 +430,7 @@
         function enableChat(peerId) {
             messageInput.disabled = false;
             sendButton.disabled = false;
-            connectButton.disabled = true;
+            connectButton.disabled = true; // Zablokujeme další volání
             peerIdInput.value = peerId;
             peerIdInput.disabled = true;
             if (chatWindow.children.length === 1 && chatWindow.firstElementChild.classList.contains('text-center')) {
@@ -382,11 +441,18 @@
         function disableChat() {
             messageInput.disabled = true;
             sendButton.disabled = true;
-            connectButton.disabled = false;
+            connectButton.disabled = false; // Povolíme volání
             peerIdInput.disabled = false;
             peerIdInput.value = '';
+
+            // Ukončíme všechna spojení
             if (dataConnection) dataConnection.close();
             dataConnection = null;
+            if (pendingConnection) pendingConnection.close();
+            pendingConnection = null;
+
+            // Skryjeme modal pro jistotu
+            incomingCallModal.classList.add('hidden');
         }
 
         function addMessageToChat(message, isMe) {
@@ -427,6 +493,7 @@
     </script>
 </body>
 </html>
+
 
 
 
