@@ -28,9 +28,10 @@
         }
     </style>
     <!-- KROK 1: Import knihovny PeerJS (pro P2P spojení) -->
-    <script src="https://unpkg.com/peerjs@1/dist/peer.min.js"></script>
+    <!-- Změna z unpkg na cdnjs a pin na stabilní verzi, aby se předešlo chybám cache (NS_ERROR_CORRUPTED_CONTENT) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peer.min.js"></script>
     <!-- KROK 2: Import knihovny MQTT.js (pro "nástěnku" / seznam uživatelů) -->
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.7.0/mqtt.min.js"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
@@ -335,4 +336,5 @@
     </script>
 </body>
 </html>
+
 
